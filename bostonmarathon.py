@@ -98,6 +98,34 @@ for i, column in enumerate(cont_col, 1):
     data[column].hist(bins=35, color='blue', alpha=0.6)
     plt.xlabel(column)
 
+from sklearn.preprocessing import PowerTransformer
+pt = PowerTransformer()
+
+X = data.pace.values.reshape(-1,1)
+pt.fit(X)
+X = pt.transform(X)
+data.pace = pd.DataFrame(X)
+
+X = data.official.values.reshape(-1,1)
+pt.fit(X)
+X = pt.transform(X)
+data.official = pd.DataFrame(X)
+
+X = data.genderdiv.values.reshape(-1,1)
+pt.fit(X)
+X = pt.transform(X)
+data.genderdiv = pd.DataFrame(X)
+
+X = data.overall.values.reshape(-1,1)
+pt.fit(X)
+X = pt.transform(X)
+data.overall = pd.DataFrame(X)
+
+X = data.age.values.reshape(-1,1)
+pt.fit(X)
+X = pt.transform(X)
+data.age = pd.DataFrame(X)
+
 plt.figure(figsize=(14,3))
 plt.figure(figsize=(15,10))
 correlations = data.corr()
@@ -116,6 +144,7 @@ data = pd.get_dummies(data, columns=['country'])
 
 data.drop('city', inplace=True, axis = 1)
 data.drop('bib', inplace=True, axis = 1)
+data.drop('division', inplace=True, axis = 1)
 
 data.drop('gender_M', inplace=True, axis = 1)
 
@@ -123,17 +152,15 @@ data.head()
 
 data.dtypes
 
-"""## 4.1 Cluster for male and female"""
-
 import sklearn.cluster as cluster
 
-data_fm = data.drop(['5k', '10k', '25k', '20k', '35k', '30k', '40k', 'half', 'gender_F'], axis = 'columns')
+data_1 = data.drop(['5k', '10k', '25k', '20k', '35k', '30k', '40k', 'half'], axis = 'columns')
 
 K=range(1,12)
 wss = []
 for k in K:
     kmeans=cluster.KMeans(n_clusters=k,init="k-means++")
-    kmeans=kmeans.fit(data_fm)
+    kmeans=kmeans.fit(data_1)
     wss_iter = kmeans.inertia_
     wss.append(wss_iter)
 
@@ -142,104 +169,79 @@ mycenters
 
 sns.scatterplot(x = 'Clusters', y = 'WSS', data = mycenters, marker="*")
 
-"""=> Choose k = 3"""
+"""=> Choose k = 5"""
 
 from sklearn import metrics
-kmeans = cluster.KMeans(n_clusters=3 ,init="k-means++")
-data.head()
-kmeans = kmeans.fit(data_fm)
-data_fm['Clusters'] = kmeans.labels_
-metrics.silhouette_score(data, kmeans.labels_, metric='euclidean')
+kmeans = cluster.KMeans(n_clusters=5 ,init="k-means++")
+# k = kmeans.fit_predict(data_1)
+kmeans = kmeans.fit(data_1)
+metrics.silhouette_score(data_1, kmeans.labels_, metric='euclidean')
 
-kmeans.cluster_centers_
+k = kmeans.fit_predict(data_1)
 
-sns.distplot(data_fm["Clusters"])
+data_1['km'] = kmeans.labels_
 
-"""The numbers of athletes in 3 cluters are approximately the same."""
+data_1['km'].value_counts()
 
-data['Clusters'] = data_fm['Clusters']
+sns.scatterplot(x=data_1["age"], y=data["official"], hue=data_1["km"],
+    sizes=(40, 400), hue_norm=(0, 7), palette="deep"
+)
+
+sns.scatterplot(x=data_1["age"], y=data["10k"], hue=data_1["km"],
+    sizes=(70, 700), hue_norm=(0, 7), palette="rocket_r"
+)
+
+sns.scatterplot(x=data["5k"], y=data["10k"], hue=data_1["km"],
+    sizes=(70, 700), hue_norm=(0, 7), palette="crest"
+)
+
+pd.pivot_table(data_1,index=["km"])
+
+data['km'] = data_1['km']
+
+sns.set_style('darkgrid')
+g = sns.FacetGrid(data,hue="km",palette='coolwarm',size=6,aspect=2)
+g = g.map(plt.hist,'age',bins=20,alpha=0.7)
+
+sns.set_style('darkgrid')
+g = sns.FacetGrid(data,hue="km",palette='coolwarm',size=6,aspect=2)
+g = g.map(plt.hist,'official',bins=20,alpha=0.7)
+
+sns.set_style('darkgrid')
+g = sns.FacetGrid(data,hue="km",palette='coolwarm',size=6,aspect=2)
+g = g.map(plt.hist,'genderdiv',bins=20,alpha=0.7)
+
+
 
 import matplotlib.pyplot as plt
-data[data["gender_F"] == 0]["Clusters"].hist(bins=35, color='blue', label='Male', alpha=0.6)
-data[data["gender_F"] == 1]["Clusters"].hist(bins=35, color='red', label='Female', alpha=0.6)
+data[data["gender_F"] == 0]["km"].hist(bins=35, color='blue', label='Male', alpha=0.6)
+data[data["gender_F"] == 1]["km"].hist(bins=35, color='red', label='Female', alpha=0.6)
 plt.legend()
 plt.xlabel('Clusters')
 
-"""The number of female athletes in group 0 is the least and group 2's is the most. However, group 0 has the most male athletes and group 2 has the least female. The number of female and male in group 1 is approximately the same.
- 
+sns.distplot(data["official"])
 
-
-
-"""
-
-sns.barplot(x="Clusters", y="5k",hue = 'gender_F',  data=data)
-
-sns.barplot(x="Clusters", y="10k",hue = 'gender_F',  data=data)
-
-sns.barplot(x="Clusters", y="20k",hue = 'gender_F',  data=data)
-
-sns.barplot(x="Clusters", y="25k",hue = 'gender_F',  data=data)
-
-sns.barplot(x="Clusters", y="30k",hue = 'gender_F',  data=data)
-
-sns.barplot(x="Clusters", y="35k",hue = 'gender_F',  data=data)
-
-sns.barplot(x="Clusters", y="half",hue = 'gender_F',  data=data)
-
-sns.barplot(x="Clusters", y="official",hue = 'gender_F',  data=data)
-
-sns.barplot(x="Clusters", y="pace",hue = 'gender_F',  data=data) # số bước
-
-sns.barplot(x="Clusters", y="age",hue = 'gender_F',  data=data)
-
-data.drop('Clusters', inplace=True, axis = 1)
-
-"""## 4.2 Cluster for age groups"""
-
-sns.distplot(data["age"])
-
-data_age = data.drop(['5k', '10k', '25k', '20k', '35k', '30k', '40k', 'half', 'age'], axis = 'columns')
-
-data.loc[(data['age'] >= 18) & (data['age'] <= 25), 'age1'] = 1
-data['age1'] = data['age1'].fillna(0)
-data.loc[(data['age'] >= 26) & (data['age'] <= 40), 'age2'] = 1
-data['age2'] = data['age2'].fillna(0)
-data.loc[(data['age'] > 40) & (data['age'] <= 70), 'age3'] = 1
-data['age3'] = data['age3'].fillna(0)
-data.loc[(data['age'] > 70), 'age4'] = 1
-data['age4'] = data['age4'].fillna(0)
-
-K=range(1,12)
-wss = []
-for k in K:
-    kmeans=cluster.KMeans(n_clusters=k,init="k-means++")
-    kmeans=kmeans.fit(data_age)
-    wss_iter = kmeans.inertia_
-    wss.append(wss_iter)
-
-mycenters = pd.DataFrame({'Clusters' : K, 'WSS' : wss})
-mycenters
-
-sns.scatterplot(x = 'Clusters', y = 'WSS', data = mycenters, marker="*")
-
-"""=> Choose k = 3"""
-
-from sklearn import metrics
-kmeans = cluster.KMeans(n_clusters=3 ,init="k-means++")
-data.head()
-kmeans = kmeans.fit(data_age)
-data_age['Clusters'] = kmeans.labels_
-metrics.silhouette_score(data, kmeans.labels_, metric='euclidean')
-
-data['Clusters'] = data_age['Clusters']
-
-d1 = [0, len(data.loc[(data['age1'] == 1) & (data['Clusters'] == 0)]), len(data.loc[(data['age2'] == 1) & (data['Clusters'] == 0)]), 
-      len(data.loc[(data['age3'] == 1) & (data['Clusters'] == 0)]), len(data.loc[(data['age4'] == 1) & (data['Clusters'] == 0)])]
-d2 = [1, len(data.loc[(data['age1'] == 1) & (data['Clusters'] == 1)]), len(data.loc[(data['age2'] == 1) & (data['Clusters'] == 1)]), 
-      len(data.loc[(data['age3'] == 1) & (data['Clusters'] == 1)]), len(data.loc[(data['age4'] == 1) & (data['Clusters'] == 1)])]
-d3 = [2, len(data.loc[(data['age1'] == 1) & (data['Clusters'] == 2)]), len(data.loc[(data['age2'] == 1) & (data['Clusters'] == 2)]), 
-      len(data.loc[(data['age3'] == 1) & (data['Clusters'] == 2)]), len(data.loc[(data['age4'] == 1) & (data['Clusters'] == 2)])]
-d = [d1, d2, d3]
+d1 = [0, len(data.loc[(data['age'] >= -1.5) & (data['km'] == 0)]), 
+      len(data.loc[(data['age'] > -1.5) & (data['age'] <= 0) & (data['km'] == 0)]), 
+      len(data.loc[(data['age'] > 0) & (data['age'] <= 1.5) & (data['km'] == 0)]), 
+      len(data.loc[(data['age'] > 1.5) & (data['km'] == 0)])]
+d2 = [1, len(data.loc[(data['age'] >= -1.5) & (data['km'] == 1)]), 
+      len(data.loc[(data['age'] > -1.5) & (data['age'] <= 0) & (data['km'] == 1)]), 
+      len(data.loc[(data['age'] > 0) & (data['age'] <= 1.5) & (data['km'] == 1)]), 
+      len(data.loc[(data['age'] > 1.5) & (data['km'] == 1)])]
+d3 = [2, len(data.loc[(data['age'] >= -1.5) & (data['km'] == 2)]), 
+      len(data.loc[(data['age'] > -1.5) & (data['age'] <= 0) & (data['km'] == 2)]), 
+      len(data.loc[(data['age'] > 0) & (data['age'] <= 1.5) & (data['km'] == 2)]), 
+      len(data.loc[(data['age'] > 1.5) & (data['km'] == 2)])]
+d4 = [3, len(data.loc[(data['age'] >= -1.5) & (data['km'] == 3)]), 
+      len(data.loc[(data['age'] > -1.5) & (data['age'] <= 0) & (data['km'] == 3)]), 
+      len(data.loc[(data['age'] > 0) & (data['age'] <= 1.5) & (data['km'] == 3)]), 
+      len(data.loc[(data['age'] > 1.5) & (data['km'] == 3)])]
+d5 = [4, len(data.loc[(data['age'] >= -1.5) & (data['km'] == 4)]), 
+      len(data.loc[(data['age'] > -1.5) & (data['age'] <= 0) & (data['km'] == 4)]), 
+      len(data.loc[(data['age'] > 0) & (data['age'] <= 1.5) & (data['km'] == 4)]), 
+      len(data.loc[(data['age'] > 1.5) & (data['km'] == 4)])]
+d = [d1, d2, d3, d4, d5]
 d
 df_age = pd.DataFrame(d, columns=['cluster', 'age1', 'age2', 'age3', 'age4'])
 df_age
@@ -273,89 +275,265 @@ fig.add_trace(go.Bar(
 ))
 fig.show()
 
-"""Group 0 contains the most youngest (18-40) and the least older.
-Group 1 contains the most older (>70).
-Group 2 contains the most middle-aged (40-70).
-"""
-
-data.drop('Clusters', inplace=True, axis = 1)
-
-"""## 4.3 Cluster for finish time"""
-
 sns.distplot(data["official"])
 
-"""We will divide into 4 groups: who have the finish time less than or equal to 150, in the range from 150 to 300, in the range from 300 to 450, more than 450."""
+d1 = [0, len(data.loc[(data['official'] >= -1.5) & (data['km'] == 0)]), 
+      len(data.loc[(data['official'] > -1.5) & (data['official'] <= 0) & (data['km'] == 0)]), 
+      len(data.loc[(data['official'] > 0) & (data['official'] <= 1.5) & (data['km'] == 0)]), 
+      len(data.loc[(data['official'] > 1.5) & (data['km'] == 0)])]
+d2 = [1, len(data.loc[(data['official'] >= -1.5) & (data['km'] == 1)]), 
+      len(data.loc[(data['official'] > -1.5) & (data['official'] <= 0) & (data['km'] == 1)]), 
+      len(data.loc[(data['official'] > 0) & (data['official'] <= 1.5) & (data['km'] == 1)]), 
+      len(data.loc[(data['official'] > 1.5) & (data['km'] == 1)])]
+d3 = [2, len(data.loc[(data['official'] >= -1.5) & (data['km'] == 2)]), 
+      len(data.loc[(data['official'] > -1.5) & (data['official'] <= 0) & (data['km'] == 2)]), 
+      len(data.loc[(data['official'] > 0) & (data['official'] <= 1.5) & (data['km'] == 2)]), 
+      len(data.loc[(data['official'] > 1.5) & (data['km'] == 3)])]
+d4 = [3, len(data.loc[(data['official'] >= -1.5) & (data['km'] == 3)]), 
+      len(data.loc[(data['official'] > -1.5) & (data['official'] <= 0) & (data['km'] == 3)]), 
+      len(data.loc[(data['official'] > 0) & (data['official'] <= 1.5) & (data['km'] == 3)]), 
+      len(data.loc[(data['official'] > 1.5) & (data['km'] == 3)])]
+d5 = [4, len(data.loc[(data['official'] >= -1.5) & (data['km'] == 4)]), 
+      len(data.loc[(data['official'] > -1.5) & (data['official'] <= 0) & (data['km'] == 4)]), 
+      len(data.loc[(data['official'] > 0) & (data['official'] <= 1.5) & (data['km'] == 4)]), 
+      len(data.loc[(data['official'] > 1.5) & (data['km'] == 4)])]
+d = [d1, d2, d3, d4, d5]
+d
+df_o = pd.DataFrame(d, columns=['cluster', 'o1', 'o2', 'o3', 'o4'])
+df_o
 
-data_ft = data.drop(['5k', '10k', '25k', '20k', '35k', '30k', '40k', 'half', 'official'], axis = 'columns')
-
-data.loc[(data['official'] <= 200), 'ft1'] = 1
-data['ft1'] = data['ft1'].fillna(0)
-data.loc[(data['official'] > 200) & (data['official'] <= 300), 'ft2'] = 1
-data['ft2'] = data['ft2'].fillna(0)
-data.loc[(data['official'] > 300) & (data['official'] <= 400), 'ft3'] = 1
-data['ft3'] = data['ft3'].fillna(0)
-data.loc[(data['official'] > 400), 'ft4'] = 1
-data['ft4'] = data['ft4'].fillna(0)
-
-K=range(1,12)
-wss = []
-for k in K:
-    kmeans=cluster.KMeans(n_clusters=k,init="k-means++")
-    kmeans=kmeans.fit(data_ft)
-    wss_iter = kmeans.inertia_
-    wss.append(wss_iter)
-
-mycenters = pd.DataFrame({'Clusters' : K, 'WSS' : wss})
-mycenters
-
-sns.scatterplot(x = 'Clusters', y = 'WSS', data = mycenters, marker="*")
-
-"""=> Choose k = 3"""
-
-from sklearn import metrics
-kmeans = cluster.KMeans(n_clusters=3 ,init="k-means++")
-data.head()
-kmeans = kmeans.fit(data_ft)
-data_ft['Clusters'] = kmeans.labels_
-metrics.silhouette_score(data, kmeans.labels_, metric='euclidean')
-
-data['Clusters'] = data_ft['Clusters']
-
-d1 = [0, len(data.loc[(data['ft1'] == 1) & (data['Clusters'] == 0)]), len(data.loc[(data['ft2'] == 1) & (data['Clusters'] == 0)]), 
-      len(data.loc[(data['ft3'] == 1) & (data['Clusters'] == 0)]), len(data.loc[(data['ft4'] == 1) & (data['Clusters'] == 0)])]
-d2 = [1, len(data.loc[(data['ft1'] == 1) & (data['Clusters'] == 1)]), len(data.loc[(data['ft2'] == 1) & (data['Clusters'] == 1)]), 
-      len(data.loc[(data['ft3'] == 1) & (data['Clusters'] == 1)]), len(data.loc[(data['ft4'] == 1) & (data['Clusters'] == 1)])]
-d3 = [2, len(data.loc[(data['ft1'] == 1) & (data['Clusters'] == 2)]), len(data.loc[(data['ft2'] == 1) & (data['Clusters'] == 2)]), 
-      len(data.loc[(data['ft3'] == 1) & (data['Clusters'] == 2)]), len(data.loc[(data['ft4'] == 1) & (data['Clusters'] == 2)])]
-d = [d1, d2, d3]
-df_ft = pd.DataFrame(d, columns=['cluster', 'ft1', 'ft2', 'ft3', 'ft4'])
-df_ft
+import plotly.graph_objects as go
 
 fig = go.Figure()
 fig.add_trace(go.Bar(
-    x = df_ft.cluster,
-    y = df_ft.ft1,
-    name='ft1',
-    marker_color='darkorange'
+    x = df_o.cluster,
+    y = df_o.o1,
+    name='o1',
+    marker_color='blueviolet'
 ))
 fig.add_trace(go.Bar(
-    x = df_ft.cluster,
-    y = df_ft.ft2,
-    name='ft2',
-    marker_color='gold'
+    x = df_o.cluster,
+    y = df_o.o2,
+    name='o2',
+    marker_color='magenta'
 ))
 fig.add_trace(go.Bar(
-    x = df_ft.cluster,
-    y = df_ft.ft3,
-    name='ft3',
-    marker_color='orangered'
+    x = df_o.cluster,
+    y = df_o.o3,
+    name='o3',
+    marker_color='violet'
 ))
 fig.add_trace(go.Bar(
-    x = df_ft.cluster,
-    y = df_ft.ft4,
-    name='ft4',
-    marker_color='coral'
+    x = df_o.cluster,
+    y = df_o.o4,
+    name='o4',
+    marker_color='indigo'
 ))
 fig.show()
 
-"""Group 0 has the fastest-run athletes and group 1 has the slowest-run athletes."""
+"""## K-Prototype"""
+
+!pip install kmodes
+from kmodes.kprototypes import KPrototypes
+
+Data = pd.read_csv("2014.csv")
+
+Data.head()
+
+Data.drop('ctz', inplace=True, axis = 1)
+Data.drop('name', inplace=True, axis = 1)
+Data.drop('bib', inplace=True, axis = 1)
+Data.drop('city', inplace=True, axis = 1)
+Data.drop('division', inplace=True, axis = 1)
+Data['state'] = Data['state'].fillna('NA')
+Data['country'] = Data['country'].fillna('NA')
+
+display(Data.isnull().sum()/len(data))
+
+Data_1 = Data.drop(['5k', '10k', '25k', '20k', '35k', '30k', '40k', 'half'], axis = 'columns')
+
+Data_1.head()
+
+Data_1.dtypes
+
+a = Data_1['overall'].value_counts()
+print(len(a))
+
+Data_1.drop('genderdiv', inplace=True, axis = 1)
+
+a = Data_1['country'].value_counts()
+print(len(a))
+
+X = Data_1.pace.values.reshape(-1,1)
+pt.fit(X)
+X = pt.transform(X)
+Data_1.pace = pd.DataFrame(X)
+
+X = Data_1.official.values.reshape(-1,1)
+pt.fit(X)
+X = pt.transform(X)
+Data_1.official = pd.DataFrame(X)
+
+X = Data_1.age.values.reshape(-1,1)
+pt.fit(X)
+X = pt.transform(X)
+Data_1.age = pd.DataFrame(X)
+
+X = Data_1.overall.values.reshape(-1,1)
+pt.fit(X)
+X = pt.transform(X)
+Data_1.overall = pd.DataFrame(X)
+
+Data_1.dtypes
+
+K=range(1,7)
+X = Data_1
+cost = []
+for k in K:
+    kproto = KPrototypes(n_clusters = k, init='Huang') 
+    kp= kproto.fit(X, categorical=[0, 5, 6])
+    print(kp.cost_)
+    cost.append(kp.cost_)
+
+mycenters = pd.DataFrame({'Clusters' : K, 'cost' : cost})
+mycenters
+
+sns.scatterplot(x = 'Clusters', y = 'cost', data = mycenters, marker="*")
+
+from sklearn import metrics
+kproto = KPrototypes(n_clusters = 4, init='Huang') 
+kp= kproto.fit(X, categorical=[0, 5, 6])
+
+kproto.labels_
+
+Data_1['km'] = kproto.labels_
+Data['km'] = kproto.labels_
+
+sns.scatterplot(x=Data["age"], y=Data["10k"], hue=Data_1["km"],
+    sizes=(70, 700), hue_norm=(0, 7), palette="rocket_r"
+)
+
+pd.pivot_table(Data_1,index=["km"])
+
+sns.distplot(Data_1["age"])
+
+d1 = [0, len(Data_1.loc[(Data_1['age'] < -1.5) & (Data_1['km'] == 0)]), 
+      len(Data_1.loc[(Data_1['age'] >= -1.5) & (Data_1['age'] <= 0) & (Data['km'] == 0)]), 
+      len(Data_1.loc[(Data_1['age'] > 0) & (Data_1['age'] <= 1.5) & (Data['km'] == 0)]), 
+      len(Data_1.loc[(Data_1['age'] > 1.5) & (Data_1['km'] == 0)])]
+d2 = [1, len(Data_1.loc[(Data_1['age'] < -1.5) & (Data_1['km'] == 1)]), 
+      len(Data_1.loc[(Data_1['age'] >= -1.5) & (Data_1['age'] <= 0) & (Data['km'] == 1)]), 
+      len(Data_1.loc[(Data_1['age'] > 0) & (Data_1['age'] <= 1.5) & (Data['km'] == 1)]), 
+      len(Data_1.loc[(Data_1['age'] > 1.5) & (Data_1['km'] == 1)])]
+d3 = [2, len(Data_1.loc[(Data_1['age'] < -1.5) & (Data_1['km'] == 2)]), 
+      len(Data_1.loc[(Data_1['age'] >= -1.5) & (Data_1['age'] <= 0) & (Data['km'] == 2)]), 
+      len(Data_1.loc[(Data_1['age'] > 0) & (Data_1['age'] <= 1.5) & (Data['km'] == 2)]), 
+      len(Data_1.loc[(Data_1['age'] > 1.5) & (Data_1['km'] == 2)])]
+d4 = [3, len(Data_1.loc[(Data_1['age'] < -1.5) & (Data_1['km'] == 3)]), 
+      len(Data_1.loc[(Data_1['age'] >= -1.5) & (Data_1['age'] <= 0) & (Data['km'] == 3)]), 
+      len(Data_1.loc[(Data_1['age'] > 0) & (Data_1['age'] <= 1.5) & (Data['km'] == 3)]), 
+      len(Data_1.loc[(Data_1['age'] > 1.5) & (Data_1['km'] == 3)])]
+d = [d1, d2, d3, d4]
+d
+df_age = pd.DataFrame(d, columns=['cluster', 'age1', 'age2', 'age3', 'age4'])
+df_age
+
+import plotly.graph_objects as go
+
+fig = go.Figure()
+fig.add_trace(go.Bar(
+    x = df_age.cluster,
+    y = df_age.age1,
+    name='age1',
+    marker_color='blueviolet'
+))
+fig.add_trace(go.Bar(
+    x = df_age.cluster,
+    y = df_age.age2,
+    name='age2',
+    marker_color='magenta'
+))
+fig.add_trace(go.Bar(
+    x = df_age.cluster,
+    y = df_age.age3,
+    name='age3',
+    marker_color='violet'
+))
+fig.add_trace(go.Bar(
+    x = df_age.cluster,
+    y = df_age.age4,
+    name='age4',
+    marker_color='indigo'
+))
+fig.show()
+
+Data[Data["gender"] == 'M']["km"].hist(bins=35, color='blue', label='Male', alpha=0.6)
+Data[Data["gender"] == 'F']["km"].hist(bins=35, color='red', label='Female', alpha=0.6)
+plt.legend()
+plt.xlabel('Clusters')
+
+d1 = [0, len(Data_1.loc[(Data_1['official'] < -1.5) & (Data_1['km'] == 0)]), 
+      len(Data_1.loc[(Data_1['official'] >= -1.5) & (Data_1['official'] <= 0) & (Data['km'] == 0)]), 
+      len(Data_1.loc[(Data_1['official'] > 0) & (Data_1['official'] <= 1.5) & (Data['km'] == 0)]), 
+      len(Data_1.loc[(Data_1['official'] > 1.5) & (Data_1['km'] == 0)])]
+d2 = [1, len(Data_1.loc[(Data_1['official'] < -1.5) & (Data_1['km'] == 1)]), 
+      len(Data_1.loc[(Data_1['official'] >= -1.5) & (Data_1['official'] <= 0) & (Data['km'] == 1)]), 
+      len(Data_1.loc[(Data_1['official'] > 0) & (Data_1['official'] <= 1.5) & (Data['km'] == 1)]), 
+      len(Data_1.loc[(Data_1['official'] > 1.5) & (Data_1['km'] == 1)])]
+d3 = [2, len(Data_1.loc[(Data_1['official'] < -1.5) & (Data_1['km'] == 2)]), 
+      len(Data_1.loc[(Data_1['official'] >= -1.5) & (Data_1['official'] <= 0) & (Data['km'] == 2)]), 
+      len(Data_1.loc[(Data_1['official'] > 0) & (Data_1['official'] <= 1.5) & (Data['km'] == 2)]), 
+      len(Data_1.loc[(Data_1['official'] > 1.5) & (Data_1['km'] == 2)])]
+d4 = [3, len(Data_1.loc[(Data_1['official'] < -1.5) & (Data_1['km'] == 3)]), 
+      len(Data_1.loc[(Data_1['official'] >= -1.5) & (Data_1['official'] <= 0) & (Data['km'] == 3)]), 
+      len(Data_1.loc[(Data_1['official'] > 0) & (Data_1['official'] <= 1.5) & (Data['km'] == 3)]), 
+      len(Data_1.loc[(Data_1['official'] > 1.5) & (Data_1['km'] == 3)])]
+d = [d1, d2, d3, d4]
+d
+df_o = pd.DataFrame(d, columns=['cluster', 'o1', 'o2', 'o3', 'o4'])
+df_o
+
+import plotly.graph_objects as go
+
+fig = go.Figure()
+fig.add_trace(go.Bar(
+    x = df_o.cluster,
+    y = df_o.o1,
+    name='o1',
+    marker_color='blueviolet'
+))
+fig.add_trace(go.Bar(
+    x = df_o.cluster,
+    y = df_o.o2,
+    name='o2',
+    marker_color='magenta'
+))
+fig.add_trace(go.Bar(
+    x = df_o.cluster,
+    y = df_o.o3,
+    name='o3',
+    marker_color='violet'
+))
+fig.add_trace(go.Bar(
+    x = df_o.cluster,
+    y = df_o.o4,
+    name='o4',
+    marker_color='indigo'
+))
+fig.show()
+
+sns.set_style('darkgrid')
+g = sns.FacetGrid(Data,hue="km",palette='coolwarm',size=6,aspect=2)
+g = g.map(plt.hist,'age',bins=20,alpha=0.7)
+
+sns.set_style('darkgrid')
+g = sns.FacetGrid(Data,hue="km",palette='coolwarm',size=6,aspect=2)
+g = g.map(plt.hist,'pace',bins=20,alpha=0.7)
+
+sns.set_style('darkgrid')
+g = sns.FacetGrid(Data,hue="km",palette='coolwarm',size=6,aspect=2)
+g = g.map(plt.hist,'gender',bins=20,alpha=0.7)
+
+sns.set_style('darkgrid')
+g = sns.FacetGrid(Data,hue="km",palette='coolwarm',size=6,aspect=2)
+g = g.map(plt.hist,'official',bins=20,alpha=0.7)
